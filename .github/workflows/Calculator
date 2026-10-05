@@ -38,19 +38,26 @@ jobs:
           import 'dart:ui';
           import 'dart:async';
           import 'package:math_expressions/math_expressions.dart';
+          import 'package:intl/intl.dart';
+          import 'package:intl/date_symbol_data_local.dart';
 
-          void main() => runApp(const PremiumCalcApp());
+          Future<void> main() async {
+            WidgetsFlutterBinding.ensureInitialized();
+            await initializeDateFormatting('ta_IN', null); // தமிழ் மொழிக்கான அமைப்பு
+            runApp(const PremiumCalcApp());
+          }
 
           class PremiumCalcApp extends StatelessWidget {
             const PremiumCalcApp({super.key});
             @override
             Widget build(BuildContext context) {
               return MaterialApp(
+                title: 'Premium Calculator',
                 debugShowCheckedModeBanner: false,
                 themeMode: ThemeMode.dark,
                 darkTheme: ThemeData(
                   brightness: Brightness.dark,
-                  scaffoldBackgroundColor: const Color(0xFF0F172A), // Premium Dark Blue/Black
+                  scaffoldBackgroundColor: const Color(0xFF0F172A),
                   primaryColor: const Color(0xFF3B82F6),
                 ),
                 home: const HomeScreen(),
@@ -79,16 +86,10 @@ jobs:
 
             void _updateTime() {
               final now = DateTime.now();
-              final tamilDays = ["ஞாயிறு", "திங்கள்", "செவ்வாய்", "புதன்", "வியாழன்", "வெள்ளி", "சனி"];
-              final tamilMonths = ["ஜன", "பிப்", "மார்", "ஏப்", "மே", "ஜூன்", "ஜூலை", "ஆக", "செப்", "அக்", "நவ", "டிச"];
-              
-              int hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
-              String amPm = now.hour >= 12 ? "பிற்பகல்" : "முற்பகல்";
-              String minute = now.minute.toString().padLeft(2, '0');
-              
               setState(() {
-                _timeString = "\$hour:\$minute \$amPm";
-                _dateString = "\${now.day} \${tamilMonths[now.month - 1]}, \${tamilDays[now.weekday % 7]}";
+                // தமிழ் தேதியும் நேரமும் சரியாகக் காட்டப்படும்
+                _timeString = DateFormat('hh:mm a', 'ta_IN').format(now);
+                _dateString = DateFormat('dd MMMM, EEEE', 'ta_IN').format(now);
               });
             }
 
@@ -97,7 +98,6 @@ jobs:
               return Scaffold(
                 body: Stack(
                   children: [
-                    // Premium Background Gradient
                     Container(
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
@@ -110,19 +110,16 @@ jobs:
                     SafeArea(
                       child: Column(
                         children: [
-                          // Header: Time & Date in Tamil
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(_dateString, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                                Text(_timeString, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                                Text(_dateString, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
+                                Text(_timeString, style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ),
-                          
-                          // Tab Bar (Calculator <-> Converter)
                           Container(
                             margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                             decoration: BoxDecoration(
@@ -134,7 +131,7 @@ jobs:
                               controller: _tabController,
                               indicator: BoxDecoration(
                                 borderRadius: BorderRadius.circular(30),
-                                color: const Color(0xFF3B82F6), // Blue Highlight
+                                color: const Color(0xFF3B82F6),
                               ),
                               labelColor: Colors.white,
                               unselectedLabelColor: Colors.white54,
@@ -144,8 +141,6 @@ jobs:
                               ],
                             ),
                           ),
-
-                          // Swipeable Views
                           Expanded(
                             child: TabBarView(
                               controller: _tabController,
@@ -231,7 +226,6 @@ jobs:
             Widget build(BuildContext context) {
               return Column(
                 children: [
-                  // Display Area
                   Expanded(
                     flex: 2,
                     child: Container(
@@ -248,8 +242,6 @@ jobs:
                       ),
                     ),
                   ),
-                  
-                  // Quote / Tagline (User requested)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Text(
@@ -258,8 +250,6 @@ jobs:
                       style: TextStyle(color: Colors.blueAccent.withOpacity(0.8), fontSize: 13, fontStyle: FontStyle.italic, letterSpacing: 1.2),
                     ),
                   ),
-
-                  // Keypad
                   Expanded(
                     flex: 4,
                     child: ClipRRect(
@@ -315,26 +305,23 @@ jobs:
             }
           }
 
-          // ================= CONVERTER VIEW =================
+          // ================= CONVERTER VIEW & LOGIC =================
           class ConverterView extends StatelessWidget {
             const ConverterView({super.key});
 
             final List<Map<String, dynamic>> categories = const [
-              {"name": "Currency", "icon": Icons.attach_money},
               {"name": "Length", "icon": Icons.straighten},
               {"name": "Mass", "icon": Icons.monitor_weight},
-              {"name": "Area", "icon": Icons.grid_on},
               {"name": "Time", "icon": Icons.access_time},
-              {"name": "Finance", "icon": Icons.account_balance},
+              {"name": "Temperature", "icon": Icons.thermostat},
+              {"name": "Currency", "icon": Icons.attach_money},
+              {"name": "Area", "icon": Icons.grid_on},
+              {"name": "Volume", "icon": Icons.view_in_ar},
+              {"name": "Speed", "icon": Icons.speed},
+              {"name": "BMI", "icon": Icons.accessibility_new},
               {"name": "Data", "icon": Icons.sd_storage},
               {"name": "Date", "icon": Icons.calendar_today},
               {"name": "Discount", "icon": Icons.local_offer},
-              {"name": "Volume", "icon": Icons.view_in_ar},
-              {"name": "Numeral", "icon": Icons.format_list_numbered},
-              {"name": "Speed", "icon": Icons.speed},
-              {"name": "Temperature", "icon": Icons.thermostat},
-              {"name": "GST", "icon": Icons.receipt_long},
-              {"name": "BMI", "icon": Icons.accessibility_new},
             ];
 
             @override
@@ -353,31 +340,164 @@ jobs:
                     child: GridView.builder(
                       itemCount: categories.length,
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        crossAxisSpacing: 15,
-                        mainAxisSpacing: 15,
-                        childAspectRatio: 1.0,
+                        crossAxisCount: 3, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 1.0,
                       ),
                       itemBuilder: (context, index) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.05)),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(categories[index]["icon"], color: const Color(0xFF3B82F6), size: 32),
-                              const SizedBox(height: 8),
-                              Text(categories[index]["name"], style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                            ],
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.push(context, MaterialPageRoute(
+                              builder: (context) => ActiveConverterScreen(category: categories[index]["name"])
+                            ));
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.white.withOpacity(0.05)),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(categories[index]["icon"], color: const Color(0xFF3B82F6), size: 32),
+                                const SizedBox(height: 8),
+                                Text(categories[index]["name"], style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                              ],
+                            ),
                           ),
                         );
                       },
                     ),
                   ),
                 ),
+              );
+            }
+          }
+
+          // ================= WORKING CONVERTER SCREEN =================
+          class ActiveConverterScreen extends StatefulWidget {
+            final String category;
+            const ActiveConverterScreen({super.key, required this.category});
+
+            @override
+            State<ActiveConverterScreen> createState() => _ActiveConverterScreenState();
+          }
+
+          class _ActiveConverterScreenState extends State<ActiveConverterScreen> {
+            String fromUnit = "";
+            String toUnit = "";
+            TextEditingController inputController = TextEditingController(text: "1");
+            String result = "";
+
+            final Map<String, List<String>> unitMap = {
+              "Length": ["Meter", "Kilometer", "Centimeter", "Millimeter", "Mile", "Yard", "Foot", "Inch"],
+              "Mass": ["Kilogram", "Gram", "Milligram", "Pound", "Ounce"],
+              "Time": ["Second", "Minute", "Hour", "Day"],
+              "Temperature": ["Celsius", "Fahrenheit", "Kelvin"],
+            };
+
+            final Map<String, double> conversionRates = {
+              "Meter": 1, "Kilometer": 1000, "Centimeter": 0.01, "Millimeter": 0.001, "Mile": 1609.34, "Yard": 0.9144, "Foot": 0.3048, "Inch": 0.0254,
+              "Kilogram": 1000, "Gram": 1, "Milligram": 0.001, "Pound": 453.592, "Ounce": 28.3495,
+              "Second": 1, "Minute": 60, "Hour": 3600, "Day": 86400,
+            };
+
+            @override
+            void initState() {
+              super.initState();
+              if (unitMap.containsKey(widget.category)) {
+                fromUnit = unitMap[widget.category]![0];
+                toUnit = unitMap[widget.category]![1];
+                calculate();
+              }
+            }
+
+            void calculate() {
+              if (!unitMap.containsKey(widget.category)) return;
+              
+              double input = double.tryParse(inputController.text) ?? 0;
+              double out = 0;
+
+              if (widget.category == "Temperature") {
+                if (fromUnit == "Celsius" && toUnit == "Fahrenheit") out = (input * 9/5) + 32;
+                else if (fromUnit == "Fahrenheit" && toUnit == "Celsius") out = (input - 32) * 5/9;
+                else if (fromUnit == "Celsius" && toUnit == "Kelvin") out = input + 273.15;
+                else if (fromUnit == "Kelvin" && toUnit == "Celsius") out = input - 273.15;
+                else out = input;
+              } else {
+                double baseValue = input * conversionRates[fromUnit]!;
+                out = baseValue / conversionRates[toUnit]!;
+              }
+
+              setState(() {
+                result = out.toStringAsFixed(out.truncateToDouble() == out ? 0 : 4);
+              });
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              bool isSupported = unitMap.containsKey(widget.category);
+
+              return Scaffold(
+                backgroundColor: const Color(0xFF0F172A),
+                appBar: AppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  title: Text("${widget.category} Converter"),
+                ),
+                body: isSupported ? Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextField(
+                        controller: inputController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(fontSize: 24, color: Colors.white),
+                        decoration: InputDecoration(
+                          labelText: "Enter Value",
+                          labelStyle: const TextStyle(color: Colors.blueAccent),
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.05),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        ),
+                        onChanged: (val) => calculate(),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          buildDropdown(fromUnit, (val) { setState(() { fromUnit = val!; calculate(); }); }),
+                          const Icon(Icons.swap_horiz, color: Colors.white54, size: 30),
+                          buildDropdown(toUnit, (val) { setState(() { toUnit = val!; calculate(); }); }),
+                        ],
+                      ),
+                      const SizedBox(height: 40),
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3B82F6).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          "= $result",
+                          style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ) : Center(child: Text("Coming Soon: ${widget.category}", style: const TextStyle(color: Colors.white54, fontSize: 18))),
+              );
+            }
+
+            Widget buildDropdown(String currentValue, Function(String?) onChanged) {
+              return DropdownButton<String>(
+                value: currentValue,
+                dropdownColor: const Color(0xFF1E3A8A),
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                items: unitMap[widget.category]!.map((String value) {
+                  return DropdownMenuItem<String>(value: value, child: Text(value));
+                }).toList(),
+                onChanged: onChanged,
               );
             }
           }
@@ -391,6 +511,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Premium-Calculator-Converter-APK
+          name: Working-Premium-Calculator
           path: premium_calc/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
