@@ -1,0 +1,396 @@
+name: Build Premium Calculator APK
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+
+      - name: Create Flutter Project & Add Dependencies
+        run: |
+          flutter create premium_calc
+          cd premium_calc
+          flutter pub add math_expressions
+          flutter pub add intl
+
+      - name: Write Main Code (Premium UI & Logic)
+        run: |
+          cd premium_calc
+          cat << 'EOF' > lib/main.dart
+          import 'package:flutter/material.dart';
+          import 'dart:ui';
+          import 'dart:async';
+          import 'package:math_expressions/math_expressions.dart';
+
+          void main() => runApp(const PremiumCalcApp());
+
+          class PremiumCalcApp extends StatelessWidget {
+            const PremiumCalcApp({super.key});
+            @override
+            Widget build(BuildContext context) {
+              return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                themeMode: ThemeMode.dark,
+                darkTheme: ThemeData(
+                  brightness: Brightness.dark,
+                  scaffoldBackgroundColor: const Color(0xFF0F172A), // Premium Dark Blue/Black
+                  primaryColor: const Color(0xFF3B82F6),
+                ),
+                home: const HomeScreen(),
+              );
+            }
+          }
+
+          class HomeScreen extends StatefulWidget {
+            const HomeScreen({super.key});
+            @override
+            State<HomeScreen> createState() => _HomeScreenState();
+          }
+
+          class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
+            late TabController _tabController;
+            String _timeString = "";
+            String _dateString = "";
+
+            @override
+            void initState() {
+              super.initState();
+              _tabController = TabController(length: 2, vsync: this);
+              _updateTime();
+              Timer.periodic(const Duration(seconds: 1), (Timer t) => _updateTime());
+            }
+
+            void _updateTime() {
+              final now = DateTime.now();
+              final tamilDays = ["ஞாயிறு", "திங்கள்", "செவ்வாய்", "புதன்", "வியாழன்", "வெள்ளி", "சனி"];
+              final tamilMonths = ["ஜன", "பிப்", "மார்", "ஏப்", "மே", "ஜூன்", "ஜூலை", "ஆக", "செப்", "அக்", "நவ", "டிச"];
+              
+              int hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
+              String amPm = now.hour >= 12 ? "பிற்பகல்" : "முற்பகல்";
+              String minute = now.minute.toString().padLeft(2, '0');
+              
+              setState(() {
+                _timeString = "\$hour:\$minute \$amPm";
+                _dateString = "\${now.day} \${tamilMonths[now.month - 1]}, \${tamilDays[now.weekday % 7]}";
+              });
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return Scaffold(
+                body: Stack(
+                  children: [
+                    // Premium Background Gradient
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF020617), Color(0xFF0F172A), Color(0xFF1E3A8A)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                    ),
+                    SafeArea(
+                      child: Column(
+                        children: [
+                          // Header: Time & Date in Tamil
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(_dateString, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                                Text(_timeString, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                              ],
+                            ),
+                          ),
+                          
+                          // Tab Bar (Calculator <-> Converter)
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(30),
+                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                            ),
+                            child: TabBar(
+                              controller: _tabController,
+                              indicator: BoxDecoration(
+                                borderRadius: BorderRadius.circular(30),
+                                color: const Color(0xFF3B82F6), // Blue Highlight
+                              ),
+                              labelColor: Colors.white,
+                              unselectedLabelColor: Colors.white54,
+                              tabs: const [
+                                Tab(text: "CALCULATOR"),
+                                Tab(text: "CONVERTER"),
+                              ],
+                            ),
+                          ),
+
+                          // Swipeable Views
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                const CalculatorView(),
+                                const ConverterView(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+          }
+
+          // ================= CALCULATOR VIEW =================
+          class CalculatorView extends StatefulWidget {
+            const CalculatorView({super.key});
+            @override
+            State<CalculatorView> createState() => _CalculatorViewState();
+          }
+
+          class _CalculatorViewState extends State<CalculatorView> {
+            String equation = "0";
+            String result = "0";
+
+            void buttonPressed(String buttonText) {
+              setState(() {
+                if (buttonText == "AC") {
+                  equation = "0";
+                  result = "0";
+                } else if (buttonText == "⌫") {
+                  equation = equation.substring(0, equation.length - 1);
+                  if (equation.isEmpty) equation = "0";
+                } else if (buttonText == "=") {
+                  try {
+                    String finalEq = equation.replaceAll('×', '*').replaceAll('÷', '/').replaceAll('−', '-');
+                    Parser p = Parser();
+                    Expression exp = p.parse(finalEq);
+                    ContextModel cm = ContextModel();
+                    double eval = exp.evaluate(EvaluationType.REAL, cm);
+                    result = eval.toStringAsFixed(eval.truncateToDouble() == eval ? 0 : 4);
+                  } catch (e) {
+                    result = "Error";
+                  }
+                } else {
+                  if (equation == "0") {
+                    equation = buttonText;
+                  } else {
+                    equation = equation + buttonText;
+                  }
+                }
+              });
+            }
+
+            Widget buildButton(String text, Color textColor, Color bgColor) {
+              return GestureDetector(
+                onTap: () => buttonPressed(text),
+                child: Container(
+                  margin: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(2, 4))
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      text,
+                      style: TextStyle(fontSize: 28, color: textColor, fontWeight: FontWeight.w400),
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            @override
+            Widget build(BuildContext context) {
+              return Column(
+                children: [
+                  // Display Area
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      alignment: Alignment.bottomRight,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(equation, style: const TextStyle(fontSize: 32, color: Colors.white54)),
+                          const SizedBox(height: 10),
+                          Text(result, style: const TextStyle(fontSize: 56, color: Colors.white, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  // Quote / Tagline (User requested)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(
+                      "சரியான கணக்கீடு\nசிறப்பான முடிவு தரும்...",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.blueAccent.withOpacity(0.8), fontSize: 13, fontStyle: FontStyle.italic, letterSpacing: 1.2),
+                    ),
+                  ),
+
+                  // Keypad
+                  Expanded(
+                    flex: 4,
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(40), topRight: Radius.circular(40)),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.03),
+                            borderRadius: const BorderRadius.only(topLeft: Radius.circular(40), topRight: Radius.circular(40)),
+                            border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+                          ),
+                          child: Column(
+                            children: [
+                              Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                                Expanded(child: buildButton("AC", const Color(0xFFEF4444), Colors.white.withOpacity(0.05))),
+                                Expanded(child: buildButton("⌫", const Color(0xFF3B82F6), Colors.white.withOpacity(0.05))),
+                                Expanded(child: buildButton("%", const Color(0xFF3B82F6), Colors.white.withOpacity(0.05))),
+                                Expanded(child: buildButton("÷", const Color(0xFF3B82F6), Colors.white.withOpacity(0.05))),
+                              ])),
+                              Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                                Expanded(child: buildButton("7", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton("8", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton("9", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton("×", const Color(0xFF3B82F6), Colors.white.withOpacity(0.05))),
+                              ])),
+                              Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                                Expanded(child: buildButton("4", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton("5", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton("6", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton("−", const Color(0xFF3B82F6), Colors.white.withOpacity(0.05))),
+                              ])),
+                              Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                                Expanded(child: buildButton("1", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton("2", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton("3", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton("+", const Color(0xFF3B82F6), Colors.white.withOpacity(0.05))),
+                              ])),
+                              Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                                Expanded(flex: 2, child: buildButton("0", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton(".", Colors.white, Colors.white.withOpacity(0.02))),
+                                Expanded(child: buildButton("=", Colors.white, const Color(0xFF3B82F6))),
+                              ])),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+          }
+
+          // ================= CONVERTER VIEW =================
+          class ConverterView extends StatelessWidget {
+            const ConverterView({super.key});
+
+            final List<Map<String, dynamic>> categories = const [
+              {"name": "Currency", "icon": Icons.attach_money},
+              {"name": "Length", "icon": Icons.straighten},
+              {"name": "Mass", "icon": Icons.monitor_weight},
+              {"name": "Area", "icon": Icons.grid_on},
+              {"name": "Time", "icon": Icons.access_time},
+              {"name": "Finance", "icon": Icons.account_balance},
+              {"name": "Data", "icon": Icons.sd_storage},
+              {"name": "Date", "icon": Icons.calendar_today},
+              {"name": "Discount", "icon": Icons.local_offer},
+              {"name": "Volume", "icon": Icons.view_in_ar},
+              {"name": "Numeral", "icon": Icons.format_list_numbered},
+              {"name": "Speed", "icon": Icons.speed},
+              {"name": "Temperature", "icon": Icons.thermostat},
+              {"name": "GST", "icon": Icons.receipt_long},
+              {"name": "BMI", "icon": Icons.accessibility_new},
+            ];
+
+            @override
+            Widget build(BuildContext context) {
+              return ClipRRect(
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(40), topRight: Radius.circular(40)),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.03),
+                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(40), topRight: Radius.circular(40)),
+                      border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+                    ),
+                    child: GridView.builder(
+                      itemCount: categories.length,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: 15,
+                        mainAxisSpacing: 15,
+                        childAspectRatio: 1.0,
+                      ),
+                      itemBuilder: (context, index) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withOpacity(0.05)),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(categories[index]["icon"], color: const Color(0xFF3B82F6), size: 32),
+                              const SizedBox(height: 8),
+                              Text(categories[index]["name"], style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              );
+            }
+          }
+          EOF
+
+      - name: Build APK
+        run: |
+          cd premium_calc
+          flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Premium-Calculator-Converter-APK
+          path: premium_calc/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
