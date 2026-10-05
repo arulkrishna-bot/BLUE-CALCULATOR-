@@ -1,4 +1,4 @@
-name: Build Final Working Calculator
+name: Build Perfect Calculator V4
 on:
   workflow_dispatch:
   push:
@@ -25,24 +25,29 @@ jobs:
 
       - name: Create Flutter Project
         run: |
-          flutter create final_calc
-          cd final_calc
+          flutter create exact_calc
+          cd exact_calc
           flutter pub add math_expressions
+          flutter pub add intl
 
-      - name: Write Main Code (With Touch Fix)
+      - name: Write Main Code (Live Calc & 15 Converters)
         run: |
-          cd final_calc
+          cd exact_calc
           cat << 'EOF' > lib/main.dart
           import 'package:flutter/material.dart';
           import 'dart:async';
           import 'package:math_expressions/math_expressions.dart';
+          import 'package:intl/intl.dart';
+          import 'package:intl/date_symbol_data_local.dart';
 
-          void main() {
-            runApp(const FinalCalcApp());
+          Future<void> main() async {
+            WidgetsFlutterBinding.ensureInitialized();
+            await initializeDateFormatting('ta_IN', null);
+            runApp(const ExactCalcApp());
           }
 
-          class FinalCalcApp extends StatelessWidget {
-            const FinalCalcApp({super.key});
+          class ExactCalcApp extends StatelessWidget {
+            const ExactCalcApp({super.key});
             @override
             Widget build(BuildContext context) {
               return MaterialApp(
@@ -51,8 +56,8 @@ jobs:
                 themeMode: ThemeMode.dark,
                 darkTheme: ThemeData(
                   brightness: Brightness.dark,
-                  scaffoldBackgroundColor: const Color(0xFF141517),
-                  fontFamily: 'Roboto', // Forcing standard clean font
+                  scaffoldBackgroundColor: const Color(0xFF16181B), // Exact matching dark background
+                  fontFamily: 'Roboto',
                 ),
                 home: const MainScreen(),
               );
@@ -80,17 +85,10 @@ jobs:
 
             void _updateTime() {
               final now = DateTime.now();
-              final months = ["ஜனவரி", "பிப்ரவரி", "மார்ச்", "ஏப்ரல்", "மே", "ஜூன்", "ஜூலை", "ஆகஸ்ட்", "செப்டம்பர்", "அக்டோபர்", "நவம்பர்", "டிசம்பர்"];
-              final days = ["திங்கள்", "செவ்வாய்", "புதன்", "வியாழன்", "வெள்ளி", "சனி", "ஞாயிறு"];
-              
-              int hour = now.hour > 12 ? now.hour - 12 : (now.hour == 0 ? 12 : now.hour);
-              String amPm = now.hour >= 12 ? "PM" : "AM";
-              String minute = now.minute.toString().padLeft(2, '0');
-              
               if(mounted) {
                 setState(() {
-                  _timeString = "$hour:$minute $amPm";
-                  _dateString = "${now.day} ${months[now.month - 1]}, ${days[now.weekday - 1]}";
+                  _timeString = DateFormat('hh:mm a', 'ta_IN').format(now);
+                  _dateString = DateFormat('dd MMMM, EEEE', 'ta_IN').format(now);
                 });
               }
             }
@@ -98,7 +96,7 @@ jobs:
             @override
             Widget build(BuildContext context) {
               return Scaffold(
-                backgroundColor: const Color(0xFF141517),
+                backgroundColor: const Color(0xFF16181B),
                 body: SafeArea(
                   child: Column(
                     children: [
@@ -107,8 +105,8 @@ jobs:
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(_dateString, style: const TextStyle(color: Colors.white70, fontSize: 13, letterSpacing: 0.5)),
-                            Text(_timeString, style: const TextStyle(color: Colors.white70, fontSize: 13, letterSpacing: 0.5)),
+                            Text(_dateString, style: const TextStyle(color: Colors.white54, fontSize: 13, letterSpacing: 0.5)),
+                            Text(_timeString, style: const TextStyle(color: Colors.white54, fontSize: 13, letterSpacing: 0.5)),
                           ],
                         ),
                       ),
@@ -116,14 +114,14 @@ jobs:
                         margin: const EdgeInsets.symmetric(horizontal: 60, vertical: 10),
                         height: 45,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF222427),
+                          color: const Color(0xFF23252A),
                           borderRadius: BorderRadius.circular(25),
                         ),
                         child: TabBar(
                           controller: _tabController,
                           indicator: BoxDecoration(
                             borderRadius: BorderRadius.circular(25),
-                            color: const Color(0xFF1E88E5),
+                            color: const Color(0xFF2979FF), // Exact Blue
                           ),
                           labelColor: Colors.white,
                           unselectedLabelColor: Colors.white54,
@@ -147,6 +145,7 @@ jobs:
             }
           }
 
+          // ================= CALCULATOR =================
           class CalculatorUI extends StatefulWidget {
             const CalculatorUI({super.key});
             @override
@@ -157,25 +156,44 @@ jobs:
             String equation = "";
             String result = "0";
 
+            void calculateLive() {
+              try {
+                String finalEq = equation.replaceAll('×', '*').replaceAll('÷', '/').replaceAll('−', '-');
+                if(finalEq.isEmpty) {
+                  result = "0";
+                  return;
+                }
+                // Don't try to calculate if it ends with an operator
+                if (finalEq.endsWith('+') || finalEq.endsWith('-') || finalEq.endsWith('*') || finalEq.endsWith('/') || finalEq.endsWith('.')) {
+                  return;
+                }
+                double eval = Parser().parse(finalEq).evaluate(EvaluationType.REAL, ContextModel());
+                result = eval.toStringAsFixed(eval.truncateToDouble() == eval ? 0 : 4);
+              } catch (e) {
+                // Keep the last valid result
+              }
+            }
+
             void buttonPressed(String buttonText) {
               setState(() {
                 if (buttonText == "AC") {
                   equation = "";
                   result = "0";
                 } else if (buttonText == "⌫") {
-                  if (equation.isNotEmpty) equation = equation.substring(0, equation.length - 1);
+                  if (equation.isNotEmpty) {
+                    equation = equation.substring(0, equation.length - 1);
+                    calculateLive();
+                  }
+                  if (equation.isEmpty) result = "0";
                 } else if (buttonText == "=") {
-                  try {
-                    String finalEq = equation.replaceAll('×', '*').replaceAll('÷', '/').replaceAll('−', '-');
-                    if(finalEq.isNotEmpty) {
-                      double eval = Parser().parse(finalEq).evaluate(EvaluationType.REAL, ContextModel());
-                      result = eval.toStringAsFixed(eval.truncateToDouble() == eval ? 0 : 4);
-                    }
-                  } catch (e) {
-                    result = "Error";
+                  // Optional: User presses =, equation becomes the result
+                  if (result != "0" && result != "Error") {
+                    equation = result;
+                    result = "";
                   }
                 } else {
                   equation = equation + buttonText;
+                  calculateLive(); // Calculate automatically as you type
                 }
               });
             }
@@ -184,17 +202,18 @@ jobs:
               return Expanded(
                 flex: isWide ? 2 : 1,
                 child: Padding(
-                  padding: const EdgeInsets.all(6.0),
+                  padding: const EdgeInsets.all(7.0), // Perfect spacing like in the photo
                   child: Material(
                     color: bgColor,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(22), // More rounded like the photo
                     child: InkWell(
                       onTap: () => buttonPressed(text),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(22),
+                      splashColor: Colors.white24,
                       child: Center(
                         child: Text(
                           text,
-                          style: TextStyle(fontSize: 26, color: textColor, fontWeight: FontWeight.w400),
+                          style: TextStyle(fontSize: 28, color: textColor, fontWeight: FontWeight.w400),
                         ),
                       ),
                     ),
@@ -216,9 +235,9 @@ jobs:
                         mainAxisAlignment: MainAxisAlignment.end,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(equation.isEmpty ? "0" : equation, style: const TextStyle(fontSize: 32, color: Colors.white54)),
+                          Text(equation.isEmpty ? "" : equation, style: const TextStyle(fontSize: 34, color: Colors.white54)),
                           const SizedBox(height: 10),
-                          Text("=$result", style: const TextStyle(fontSize: 52, color: Colors.white, fontWeight: FontWeight.w500)),
+                          Text(result.isEmpty ? "" : "=$result", style: const TextStyle(fontSize: 56, color: Colors.white, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
@@ -228,47 +247,43 @@ jobs:
                     child: Text(
                       "சரியான கணக்கீடு\nசிறப்பான முடிவு தரும்...",
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFF1E88E5), fontSize: 13, height: 1.5),
+                      style: TextStyle(color: Color(0xFF2979FF), fontSize: 13, height: 1.5),
                     ),
                   ),
                   Expanded(
                     flex: 6,
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF1C1D20),
-                        borderRadius: BorderRadius.only(topLeft: Radius.circular(35), topRight: Radius.circular(35)),
-                      ),
                       child: Column(
                         children: [
                           Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                            calcButton("AC", const Color(0xFFEF5350), const Color(0xFF2A2D32)),
-                            calcButton("⌫", const Color(0xFF1E88E5), const Color(0xFF2A2D32)),
-                            calcButton("%", const Color(0xFF1E88E5), const Color(0xFF2A2D32)),
-                            calcButton("÷", Colors.white, const Color(0xFF1E88E5)),
+                            calcButton("AC", const Color(0xFFEF5350), const Color(0xFF23252A)),
+                            calcButton("⌫", Colors.white70, const Color(0xFF23252A)),
+                            calcButton("%", Colors.white70, const Color(0xFF23252A)),
+                            calcButton("÷", Colors.white, const Color(0xFF2979FF)),
                           ])),
                           Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                            calcButton("7", Colors.white, const Color(0xFF2A2D32)),
-                            calcButton("8", Colors.white, const Color(0xFF2A2D32)),
-                            calcButton("9", Colors.white, const Color(0xFF2A2D32)),
-                            calcButton("×", Colors.white, const Color(0xFF1E88E5)),
+                            calcButton("7", Colors.white, const Color(0xFF23252A)),
+                            calcButton("8", Colors.white, const Color(0xFF23252A)),
+                            calcButton("9", Colors.white, const Color(0xFF23252A)),
+                            calcButton("×", Colors.white, const Color(0xFF2979FF)),
                           ])),
                           Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                            calcButton("4", Colors.white, const Color(0xFF2A2D32)),
-                            calcButton("5", Colors.white, const Color(0xFF2A2D32)),
-                            calcButton("6", Colors.white, const Color(0xFF2A2D32)),
-                            calcButton("−", Colors.white, const Color(0xFF1E88E5)),
+                            calcButton("4", Colors.white, const Color(0xFF23252A)),
+                            calcButton("5", Colors.white, const Color(0xFF23252A)),
+                            calcButton("6", Colors.white, const Color(0xFF23252A)),
+                            calcButton("−", Colors.white, const Color(0xFF2979FF)),
                           ])),
                           Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                            calcButton("1", Colors.white, const Color(0xFF2A2D32)),
-                            calcButton("2", Colors.white, const Color(0xFF2A2D32)),
-                            calcButton("3", Colors.white, const Color(0xFF2A2D32)),
-                            calcButton("+", Colors.white, const Color(0xFF1E88E5)),
+                            calcButton("1", Colors.white, const Color(0xFF23252A)),
+                            calcButton("2", Colors.white, const Color(0xFF23252A)),
+                            calcButton("3", Colors.white, const Color(0xFF23252A)),
+                            calcButton("+", Colors.white, const Color(0xFF2979FF)),
                           ])),
                           Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                            calcButton("0", Colors.white, const Color(0xFF2A2D32), isWide: true),
-                            calcButton(".", Colors.white, const Color(0xFF2A2D32)),
-                            calcButton("=", Colors.white, const Color(0xFF1E88E5)),
+                            calcButton("0", Colors.white, const Color(0xFF23252A), isWide: true),
+                            calcButton(".", Colors.white, const Color(0xFF23252A)),
+                            calcButton("=", Colors.white, const Color(0xFF2979FF)),
                           ])),
                         ],
                       ),
@@ -279,18 +294,26 @@ jobs:
             }
           }
 
+          // ================= CONVERTER (15 ITEMS) =================
           class ConverterUI extends StatelessWidget {
             const ConverterUI({super.key});
 
             final List<Map<String, dynamic>> categories = const [
+              {"name": "Currency", "icon": Icons.attach_money},
               {"name": "Length", "icon": Icons.straighten},
               {"name": "Mass", "icon": Icons.monitor_weight},
-              {"name": "Time", "icon": Icons.access_time},
-              {"name": "Temperature", "icon": Icons.thermostat},
               {"name": "Area", "icon": Icons.grid_on},
-              {"name": "Volume", "icon": Icons.view_in_ar},
-              {"name": "Speed", "icon": Icons.speed},
+              {"name": "Time", "icon": Icons.access_time},
+              {"name": "Finance", "icon": Icons.account_balance},
               {"name": "Data", "icon": Icons.sd_storage},
+              {"name": "Date", "icon": Icons.calendar_today},
+              {"name": "Discount", "icon": Icons.local_offer},
+              {"name": "Volume", "icon": Icons.view_in_ar},
+              {"name": "Numeral", "icon": Icons.format_list_numbered},
+              {"name": "Speed", "icon": Icons.speed},
+              {"name": "Temperature", "icon": Icons.thermostat},
+              {"name": "GST", "icon": Icons.receipt_long},
+              {"name": "BMI", "icon": Icons.accessibility_new},
             ];
 
             void openConverter(BuildContext context, String category) {
@@ -309,22 +332,22 @@ jobs:
                 child: GridView.builder(
                   itemCount: categories.length,
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 1.1,
+                    crossAxisCount: 3, crossAxisSpacing: 15, mainAxisSpacing: 15, childAspectRatio: 1.0,
                   ),
                   itemBuilder: (context, index) {
                     return Material(
-                      color: const Color(0xFF222427),
+                      color: const Color(0xFF23252A),
                       borderRadius: BorderRadius.circular(20),
                       child: InkWell(
                         onTap: () => openConverter(context, categories[index]["name"]),
                         borderRadius: BorderRadius.circular(20),
-                        splashColor: const Color(0xFF1E88E5).withOpacity(0.3),
+                        splashColor: const Color(0xFF2979FF).withOpacity(0.3),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(categories[index]["icon"], color: const Color(0xFF1E88E5), size: 30),
+                            Icon(categories[index]["icon"], color: const Color(0xFF2979FF), size: 30),
                             const SizedBox(height: 10),
-                            Text(categories[index]["name"], style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                            Text(categories[index]["name"], style: const TextStyle(color: Colors.white70, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -399,14 +422,17 @@ jobs:
 
             @override
             Widget build(BuildContext context) {
+              bool isSupported = unitMap.containsKey(widget.category);
+              
               return Container(
-                height: MediaQuery.of(context).size.height * 0.6,
+                height: MediaQuery.of(context).size.height * 0.65,
                 padding: const EdgeInsets.all(24),
                 decoration: const BoxDecoration(
-                  color: Color(0xFF1C1D20),
+                  color: Color(0xFF16181B),
                   borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+                  border: Border(top: BorderSide(color: Colors.white12)),
                 ),
-                child: Column(
+                child: isSupported ? Column(
                   children: [
                     Text("${widget.category} Converter", style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 30),
@@ -417,7 +443,7 @@ jobs:
                       textAlign: TextAlign.center,
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: const Color(0xFF2A2D32),
+                        fillColor: const Color(0xFF23252A),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                       ),
                       onChanged: (v) => calculate(),
@@ -428,15 +454,15 @@ jobs:
                       children: [
                         DropdownButton<String>(
                           value: fromUnit,
-                          dropdownColor: const Color(0xFF2A2D32),
+                          dropdownColor: const Color(0xFF23252A),
                           style: const TextStyle(color: Colors.white, fontSize: 16),
                           items: unitMap[widget.category]!.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
                           onChanged: (v) { setState(() { fromUnit = v!; calculate(); }); },
                         ),
-                        const Icon(Icons.arrow_forward, color: Color(0xFF1E88E5)),
+                        const Icon(Icons.arrow_forward, color: Color(0xFF2979FF)),
                         DropdownButton<String>(
                           value: toUnit,
-                          dropdownColor: const Color(0xFF2A2D32),
+                          dropdownColor: const Color(0xFF23252A),
                           style: const TextStyle(color: Colors.white, fontSize: 16),
                           items: unitMap[widget.category]!.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
                           onChanged: (v) { setState(() { toUnit = v!; calculate(); }); },
@@ -447,27 +473,27 @@ jobs:
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(color: const Color(0xFF1E88E5).withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                      child: Text("= $result", textAlign: TextAlign.center, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF1E88E5))),
+                      decoration: BoxDecoration(color: const Color(0xFF2979FF).withOpacity(0.15), borderRadius: BorderRadius.circular(20)),
+                      child: Text("= $result", textAlign: TextAlign.center, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF2979FF))),
                     ),
                     const SizedBox(height: 20),
                   ],
-                ),
+                ) : Center(child: Text("விரைவில் வரும்: ${widget.category}", style: const TextStyle(color: Colors.white54, fontSize: 18))),
               );
             }
           }
           EOF
 
-      - name: Build APK
+      - name: Build Final APK
         run: |
-          cd final_calc
+          cd exact_calc
           flutter clean
           flutter pub get
           flutter build apk --release
 
-      - name: Upload Perfect APK
+      - name: Upload Exact Match APK
         uses: actions/upload-artifact@v4
         with:
-          name: Final-Working-App-V3
-          path: final_calc/build/app/outputs/flutter-apk/app-release.apk
+          name: Final-App-V4
+          path: exact_calc/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
