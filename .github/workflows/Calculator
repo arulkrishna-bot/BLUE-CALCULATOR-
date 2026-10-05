@@ -1,4 +1,4 @@
-name: Build Premium Calculator APK
+name: Build Premium Calculator V2
 on:
   workflow_dispatch:
   push:
@@ -43,7 +43,7 @@ jobs:
 
           Future<void> main() async {
             WidgetsFlutterBinding.ensureInitialized();
-            await initializeDateFormatting('ta_IN', null); // தமிழ் மொழிக்கான அமைப்பு
+            await initializeDateFormatting('ta_IN', null);
             runApp(const PremiumCalcApp());
           }
 
@@ -87,7 +87,6 @@ jobs:
             void _updateTime() {
               final now = DateTime.now();
               setState(() {
-                // தமிழ் தேதியும் நேரமும் சரியாகக் காட்டப்படும்
                 _timeString = DateFormat('hh:mm a', 'ta_IN').format(now);
                 _dateString = DateFormat('dd MMMM, EEEE', 'ta_IN').format(now);
               });
@@ -159,7 +158,6 @@ jobs:
             }
           }
 
-          // ================= CALCULATOR VIEW =================
           class CalculatorView extends StatefulWidget {
             const CalculatorView({super.key});
             @override
@@ -305,7 +303,6 @@ jobs:
             }
           }
 
-          // ================= CONVERTER VIEW & LOGIC =================
           class ConverterView extends StatelessWidget {
             const ConverterView({super.key});
 
@@ -373,7 +370,6 @@ jobs:
             }
           }
 
-          // ================= WORKING CONVERTER SCREEN =================
           class ActiveConverterScreen extends StatefulWidget {
             final String category;
             const ActiveConverterScreen({super.key, required this.category});
@@ -485,7 +481,7 @@ jobs:
                       ),
                     ],
                   ),
-                ) : Center(child: Text("Coming Soon: ${widget.category}", style: const TextStyle(color: Colors.white54, fontSize: 18))),
+                ) : Center(child: Text("விரைவில் வரும்: ${widget.category}", style: const TextStyle(color: Colors.white54, fontSize: 18))),
               );
             }
 
@@ -503,14 +499,16 @@ jobs:
           }
           EOF
 
-      - name: Build APK
+      - name: Clean and Build APK
         run: |
           cd premium_calc
+          flutter clean
+          flutter pub get
           flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Working-Premium-Calculator
+          name: Premium-App-Update-V2
           path: premium_calc/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
